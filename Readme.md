@@ -4,4 +4,5 @@ This project was created as part of my journey to strengthen backend development
 ## Tutorial Reference
 [Watch the tutorial here](https://www.youtube.com/watch?v=7fjOw8ApZ1I&list=LL)
 
-## Models links (https://app.eraser.io/workspace/fqS4lMKyKtbYhEN359jx?origin=share&elements=DZri2pSVWsrhRXSzJMRYYQ)
+## Models of the project 
+[Model link](https://app.eraser.io/workspace/fqS4lMKyKtbYhEN359jx?origin=share&elements=DZri2pSVWsrhRXSzJMRYYQ)
