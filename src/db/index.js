@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 dotenv.config({
-    path: "../env"
+    path: "../.env"
 });
 import { DB_NAME } from "../constants.js";
 
