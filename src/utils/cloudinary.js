@@ -7,9 +7,9 @@ dotenv.config({
 
 
 cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
+    cloud_name: process.env.CLOUDUNARY_CLOUD_NAME,
+    api_key: process.env.CLOUDUNARY_API_KEY,
+    api_secret: process.env.CLOUDUNARY_API_SECRET
 });
 
 const uploadOnCloudinary = async (localFilePath) => {
@@ -20,7 +20,7 @@ const uploadOnCloudinary = async (localFilePath) => {
         })
          
         console.log("file is uploaded on cloudinary ", response.url);
-        fs.unlinkSync(localFilePath)
+        fs.unlinkSync(localFilePath) // this is important to remove the locally saved temporary file after the file is uploaded on cloudinary other wise it will be stored in the locally in your system for example in this code it will be saved in public folder
         return response;
 
     } catch (error) {
