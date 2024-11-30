@@ -1,8 +1,13 @@
-import {asyncHandler} from '../utils/asynchandler.js';
+import {asyncHandler} from '../utils/asyncHandler.js';
 import {ApiError} from '../utils/ApiError.js';
 import {User} from '../models/user.model.js';
 import {uploadOnCloudinary} from '../utils/cloudinary.js';
+import jwt from "jsonwebtoken";
 import {ApiResponse}from '../utils/ApiResponse.js';
+import dotenv from "dotenv";
+dotenv.config({
+    path: "/.env"
+});
 
 const registeruser = asyncHandler(async (req, res) => { 
 
@@ -83,7 +88,7 @@ const generateAccessTokenandRefreshToken = async(userid)=>{// due to multiple us
         return{accessToken,refreshToken};
     }
     catch(error){
-        throw new ApiError(500,"token generation failed while generating access token and refresh token");
+        throw new ApiError(500,`token generation failed while generating access token and refresh token ${error.message}`);
     }
 }
 
@@ -91,7 +96,7 @@ const loginuser = asyncHandler(async (req, res) => {
 
     const {email,username,password} = req.body;
 
-    if(!email || !username){
+    if(!email && !username){
         throw new ApiError(400,"email or username is required");
     }
 
@@ -134,6 +139,70 @@ const loginuser = asyncHandler(async (req, res) => {
 });
 
 const logoutuser =asyncHandler(async(req,res)=>{
+    await User.findByIdAndUpdate(  
+        req.user._id,
+        {
+            $unset:{
+                refreshToken:1
+            }
+        },
+        {
+            new:true
+        }
+    )
+
+    const options ={ 
+        httpOnly:true,
+        secure:true
+    }
+    return res
+    .status(200)
+    .clearCookie("accessToken",options)
+    .clearCookie("refreshToken",options)
+    .json(
+        new ApiResponse(200,{},"user logged out successfully")
+    )
     
 })
-export {registeruser,loginuser};
+
+const refreshAccessToken = asyncHandler(async(req,res)=>{
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
+    if(!incomingRefreshToken){
+        throw new ApiError(401,"unathorized request");
+    }
+    try {
+        const decodedtoken = jwt.verify(incomingRefreshToken,process.env.REFRESH_TOKEN_SECRET)    
+        const user =  User.findById(decodedtoken?._id)
+        if(!user){
+            throw new ApiError(401,"user not found by refresh token")
+        }
+        if(incomingRefreshToken != user?.refreshToken){
+            throw new ApiError(400," refresh token does not match -> Invalid refresh token ")
+        }
+        // now updating the tokens
+        const option = {
+            httpOnly:true,
+            secure:true
+        }
+        const {accessToken,newrefreshToken}= await generateAccessTokenandRefreshToken(user._id);
+        return res.
+        status(200)
+        .cookie("accessToken",accessToken,option)
+        .cookie("refreshToken",newrefreshToken,option)
+        .json(
+            new ApiResponse(
+                200,
+                {
+                    accessToken,
+                    refreshToken:newrefreshToken
+                },
+                " access token updated"
+            )
+        )
+    } catch (error) {
+        throw new ApiError(400,`INVALID REFRESH TOKEN ${error.message} `)
+    }
+
+})   
+
+export {registeruser,loginuser,logoutuser,refreshAccessToken};
