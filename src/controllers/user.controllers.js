@@ -205,4 +205,262 @@ const refreshAccessToken = asyncHandler(async(req,res)=>{
 
 })   
 
-export {registeruser,loginuser,logoutuser,refreshAccessToken};
+const changeCurrentPassword = asyncHandler(async(req,res)=>{
+    const{oldPassword,newPassword,confirmPassword}=req.body
+    if(newPassword != confirmPassword){
+        throw new ApiError(401,"new password and confirm password are different")
+    }
+    const user =  await User.findById(req.user?._id)
+    const isPasswordCorrect =  await user.isPasswordCorrect(oldPassword)
+    if(!isPasswordCorrect){
+        throw new ApiError(401,"wrong old password")
+    }
+    user.password = newPassword
+    await user.save({validateBeforeSave:false})
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            {},
+            "Password Changed Successfully OOO YEAH !!"
+        )
+    )
+})
+
+const getCurrentUser = asyncHandler(async(req,res)=>{
+    // console.log("req.user",req.user);
+    return res
+    .status(200)
+    .json(
+            200,
+            req.user ,            
+            `current user fetched successfully ${req.user?.username}`        
+    )
+})
+
+const udateDetails = asyncHandler(async(req,res)=>{
+    // content_type: "multipart/form-data"
+    const { fullname, email } = req.body;
+    if(! fullname && ! email){
+        throw new ApiError(400," fullname and email is required");
+    }
+    
+    console.log( "!!! OLD DETAILS !!!  = ",req.user);
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {$set:{
+            fullname:fullname,
+            email:email
+        }},
+        {new: true}
+    ).select("-password")
+    console.log( "!!! NEW DETAILS !!!  = ",user);
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user,
+            "DETAILS UPDATED SUCCESSFULLY"
+        )
+    )
+})
+
+const updateUserAvatar = asyncHandler(async(req, res) => {
+    const avatarLocalPath = req.file?.path
+
+    if (!avatarLocalPath) {
+        throw new ApiError(400, "Avatar file is missing")
+    }
+    //TODO: delete old image - assignment
+    const avatar = await uploadOnCloudinary(avatarLocalPath)
+
+    if (!avatar.url) {
+        throw new ApiError(400, "Error while uploading on avatar")
+        
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set:{
+                avatar: avatar.url
+            }
+        },
+        {new: true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, user, "Avatar image updated successfully")
+    )
+})
+
+const updateUserCoverImage = asyncHandler(async(req, res) => {
+    const coverImageLocalPath = req.file?.path
+    if (!coverImageLocalPath) {
+        throw new ApiError(400, "Cover image file is missing")
+    }
+    //TODO: delete old image - assignment
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+
+    if (!coverImage.url) {
+        throw new ApiError(400, "Error while uploading on avatar")
+        
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set:{
+                coverImage: coverImage.url
+            }
+        },
+        {new: true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, user, "Cover image updated successfully")
+    )
+})
+
+const getUserChannelProfile = asyncHandler(async(req,res)=>{
+    const {username} = req.params // we are using params instead of body because we are fetching the data not sending the data
+    if(!username?.trim()){// trim is used to remove the white spaces or the spaces from the string
+        throw new ApiError(400,"username is required")
+    }
+   const channer =  await User.aggregate([
+    {
+        $match:{ // match is used to filter the data from the database 
+            username:username?.toLowerCase()
+        } 
+    },
+    {
+        $lookup:{
+            from:"subscriptions", // this is where the data coming from
+            localField:"_id", // this is the field of the user model
+            foreignField:"channel", // this is the field of the subscription model
+            as:"subscribers" // this is the name of the field which will be used to store the data
+        }
+    },
+    {
+        $lookup:{
+            from:"subscriptions",
+            localField:"_id",
+            foreignField:"subscriber",
+            as:"subscribedTO"
+        }
+    },
+    {
+        $addFields:{
+            subscriberCount:{$size:"$subscribers"},
+            subscribedTOCount:{$size:"$subscribedTO"} ,
+            isSubscribed:{
+                $cond:{ // this is the condition to check if the user is subscribed or not
+                    if:{$in:[req.user?._id,"$subscribers.subscriber"]}, // $in is used to check if the user is present in the subscribers array or not
+                    then:true,
+                    else:false
+                }
+            }  
+        }
+    },
+    {
+        $project:{  // this is used to project the data which we want to show to the user
+            fullname:1,
+            username:1,
+            avatar:1,
+            coverImage:1,
+            subscriberCount:1,
+            subscribedTOCount:1,
+            email:1,
+            isSubscribed:1 
+        }
+    }
+   ])
+//    console.log("channer",channer);
+   if(!channer?.length){
+       throw new ApiError(404,"channel not found")
+   }
+   return res
+   .status(200)
+    .json(
+         new ApiResponse(
+              200,
+              channer[0],
+              "channel profile fetched successfully"
+         )
+    )
+})
+
+const getWatchHistory = asyncHandler(async(req,res)=>{
+    const user = User.aggregate([
+        {
+            $match:{
+                _id:new mongoose.Types.ObjectId(req.user._id) //we could have used req.user._id directly but we have used mongoose.Types.ObjectId because we are using mongoose aggregate function and it requires the id in the form of mongoose.Types.ObjectId, basically we are converting the string id to the mongoose.Types.ObjectId
+            }
+        },
+        {
+            $lookup:{
+                from:"videos",
+                localField:"watchHistory",
+                foreignField:"_id",
+                as:"watchHistory",
+                pipeline:[
+                    {
+                        $lookup:{
+                            from:"users",
+                            localField:"owner",
+                            foreignField:"_id",
+                            as:"owner", 
+                            pipeline:[
+                                {
+                                    $project:{
+                                        fullname:1,
+                                        username:1,
+                                        avatar:1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields:{
+                            owner:{
+                                // $arrayElemAt:["$owner",0] // this can be done in one more way 
+                                $first:"$owner" // this is used to get the first element of the array
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+       
+    ])
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user[0].watchHistory,
+            "watch history fetched successfully"
+        )
+    )
+
+})
+export {
+    registeruser,
+    loginuser,
+    logoutuser,
+    refreshAccessToken,
+    changeCurrentPassword,
+    getCurrentUser,
+    udateDetails,
+    updateUserCoverImage,
+    updateUserAvatar,
+    getUserChannelProfile,
+    getWatchHistory
+};
