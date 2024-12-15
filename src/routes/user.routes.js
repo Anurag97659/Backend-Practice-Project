@@ -23,7 +23,7 @@ router.route("/udateDetails").patch(verifyJWT,udateDetails) // we used patch ins
 
 router.route("/avatar").patch(verifyJWT,upload.single("avatar"), updateUserAvatar) //upload.single("avatar") is a middleware to handle single file which is implemented in multer.middleware.js
 router.route("/coverImage").patch(verifyJWT,upload.single("coverImage"), updateUserCoverImage) 
-router.route("/c/:username ").get(verifyJWT, getUserChannelProfile) // using get instead of post because we are fetching data not sending data
-router.route("/c/:history ").get(verifyJWT, getWatchHistory)
+router.route("/u/:username ").get(verifyJWT, getUserChannelProfile) // using get instead of post because we are fetching data not sending data
+router.route("/h/:history ").get(verifyJWT, getWatchHistory)
 
 export default router;

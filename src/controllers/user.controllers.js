@@ -46,23 +46,23 @@ const registeruser = asyncHandler(async (req, res) => {
     }
 
 
-    if(!avatarLocalpath){// this is aplicable when avatar is required
-        throw new ApiError(400,"avatar is required");
-    }
+    // if(!avatarLocalpath){// this is aplicable when avatar is required
+    //     throw new ApiError(400,"avatar is required");
+    // }
 
    const avatar = await uploadOnCloudinary(avatarLocalpath)
    const coverImage= await uploadOnCloudinary(coverImageLocalpath)
 
-   if(!avatar){     // this is aplicable when avatar is required
-       throw new ApiError(400,"avatar upload failed");
-   }
+//    if(!avatar){     // this is aplicable when avatar is required
+//        throw new ApiError(400,"avatar upload failed");
+//    }
 
    const user =await User.create({
          username,
          email,
          password,
          fullname,
-         avatar:avatar.url,
+         avatar:avatar?.url||"",
          coverImage:coverImage?.url||""
    })
 
@@ -241,16 +241,16 @@ const getCurrentUser = asyncHandler(async(req,res)=>{
 
 const udateDetails = asyncHandler(async(req,res)=>{
     // content_type: "multipart/form-data"
-    const { fullname, email } = req.body;
-    if(! fullname && ! email){
-        throw new ApiError(400," fullname and email is required");
+    const { username, email } = req.body;
+    if(! username && ! email){
+        throw new ApiError(400," username and email is required");
     }
     
     console.log( "!!! OLD DETAILS !!!  = ",req.user);
     const user = await User.findByIdAndUpdate(
         req.user?._id,
         {$set:{
-            fullname:fullname,
+            username:username,
             email:email
         }},
         {new: true}
